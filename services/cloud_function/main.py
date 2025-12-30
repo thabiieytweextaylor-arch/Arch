@@ -98,12 +98,18 @@ def claim_reward():
     try:
         client = tasks_v2.CloudTasksClient()
         payload = json.dumps({'claimId': claim_id}).encode()
+        # include a shared task secret header for Cloud Run verification
+        task_secret = os.environ.get('TASK_SECRET')
+        headers = {'Content-Type': 'application/json'}
+        if task_secret:
+            headers['X-Task-Secret'] = task_secret
+
         task = {
             'http_request': {
                 'http_method': HttpMethod.POST,
                 'url': MINT_WORKER_URL,
                 'oidc_token': {'service_account_email': TASK_SA},
-                'headers': {'Content-Type': 'application/json'},
+                'headers': headers,
                 'body': payload
             }
         }

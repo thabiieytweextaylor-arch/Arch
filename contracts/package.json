@@ -1,0 +1,15 @@
+{
+  "name": "a2a-contracts",
+  "version": "0.1.0",
+  "description": "Hardhat project for A2A Badge contract",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "deploy:testnet": "node scripts/deploy_testnet.js"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "hardhat": "^2.18.0",
+    "@openzeppelin/contracts": "^4.9.3"
+  }
+}

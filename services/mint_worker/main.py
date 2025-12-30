@@ -40,26 +40,46 @@ def handle_mint():
     if not claim_id:
         return jsonify({'error': 'missing claimId'}), 400
 
-    claim_doc = db.collection('claims').document(claim_id)
-    claim = claim_doc.get().to_dict() if claim_doc.get().exists else None
-    if not claim:
-        return jsonify({'error': 'claim not found'}), 404
-    if claim.get('status') == 'minted':
-        return jsonify({'status': 'already minted', 'tx': claim.get('txHash')}), 200
+    # Verify task secret header to ensure only Cloud Tasks can call this endpoint
+    expected_secret = os.environ.get('TASK_SECRET')
+    if expected_secret:
+        provided = request.headers.get('X-Task-Secret')
+        if not provided or provided != expected_secret:
+            return jsonify({'error': 'unauthorized'}), 401
 
-    # Basic check to prevent replays
-    claim_doc.update({'status': 'processing'})
+    claim_ref = db.collection('claims').document(claim_id)
+
+    def _txn_process(txn):
+        doc = txn.get(claim_ref)
+        if not doc.exists:
+            return {'error': 'claim not found', 'code': 404}
+        data = doc.to_dict()
+        status = data.get('status')
+        # If already minted, return early
+        if status == 'minted':
+            return {'status': 'already minted', 'tx': data.get('txHash')}
+        # Only process if queued (to implement idempotency / locking)
+        if status != 'queued':
+            return {'error': f'unexpected status {status}', 'code': 409}
+        # set to processing
+        txn.update(claim_ref, {'status': 'processing', 'processingAt': firestore.SERVER_TIMESTAMP})
+        return {'ok': True, 'data': data}
 
     try:
+        res = db.run_transaction(_txn_process)
+        if res.get('error'):
+            return jsonify({'error': res['error']}), res.get('code', 400)
+        claim = res['data']
+
         contract = load_contract()
         private_key = get_private_key()
         relayer = w3.eth.account.from_key(private_key).address
 
-        # Prepare mint call - assuming contract has mint(address,uint256,string,bool)
+        # Prepare mint call - deterministic token id from claim id hash
         metadata = claim.get('metadata', {})
-        token_id = int(time.time() * 1000)  # simple unique token id; in prod use robust id generation
+        token_id = int.from_bytes(hashlib.sha256(claim_id.encode()).digest()[:8], 'big')
         token_uri = metadata.get('tokenURI') or metadata.get('uri') or ''
-        soulbound = metadata.get('soulbound', False)
+        soulbound = bool(metadata.get('soulbound', False))
 
         txn = contract.functions.mint(claim.get('wallet'), token_id, token_uri, soulbound).build_transaction({
             'from': relayer,
@@ -72,12 +92,15 @@ def handle_mint():
         tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
         tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
 
-        claim_doc.update({'status': 'minted', 'txHash': tx_hash.hex(), 'tokenId': token_id, 'mintedAt': firestore.SERVER_TIMESTAMP})
+        claim_ref.update({'status': 'minted', 'txHash': tx_hash.hex(), 'tokenId': token_id, 'mintedAt': firestore.SERVER_TIMESTAMP})
         return jsonify({'status': 'minted', 'txHash': tx_hash.hex()}), 200
 
     except Exception as e:
         # mark as error for visibility and allow retry
-        claim_doc.update({'status': 'error', 'error': str(e)})
+        try:
+            claim_ref.update({'status': 'error', 'error': str(e)})
+        except Exception:
+            pass
         return jsonify({'error': str(e)}), 500
 
 
