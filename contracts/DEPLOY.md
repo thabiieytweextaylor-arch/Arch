@@ -21,6 +21,8 @@ The script writes `contracts/deployed/address.json` containing the deployed addr
 
 GitHub Actions deploy:
 - The workflow `Deploy contracts to Polygon Mumbai` can be triggered manually (workflow_dispatch) or by pushing a tag matching `deploy-*`.
+- Add the following repository secrets in your repo settings: `POLYGON_MUMBAI_RPC`, `DEPLOYER_PRIVATE_KEY`, and optionally `POLYGONSCAN_API_KEY`.
+- After adding secrets, trigger the workflow manually via the Actions tab or from the command line with `gh workflow run "Deploy contracts to Polygon Mumbai"`.
 - It will output the deployed address as an artifact named `deployed-address`.
 
 Security notes:
