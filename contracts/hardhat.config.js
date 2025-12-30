@@ -13,5 +13,14 @@ module.exports = {
   },
   networks: {
     hardhat: {},
+    mumbai: {
+      url: process.env.POLYGON_MUMBAI_RPC || process.env.POLYGON_RPC_URL || '',
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : []
+    }
+  },
+  etherscan: {
+    apiKey: {
+      polygonMumbai: process.env.POLYGONSCAN_API_KEY || process.env.POLYGONSCAN_KEY || ''
+    }
   }
 };
