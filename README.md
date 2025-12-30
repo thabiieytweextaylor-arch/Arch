@@ -10,3 +10,9 @@ Structure:
 - `.github`: CI workflows
 
 See `docs/*` for usage and deployment steps.
+
+Contracts deployment
+
+- Use the Hardhat scripts in `contracts/` to deploy to Polygon Mumbai (testnet).
+- A GitHub Actions workflow `Deploy contracts to Polygon Mumbai` (`.github/workflows/deploy_contracts.yml`) can be triggered manually or by pushing a `deploy-*` tag. Ensure repository secrets `POLYGON_MUMBAI_RPC`, `DEPLOYER_PRIVATE_KEY`, and optionally `POLYGONSCAN_API_KEY` are set.
+
