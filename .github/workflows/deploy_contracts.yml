@@ -17,7 +17,7 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         working-directory: ./contracts
-        run: npm ci
+        run: npm install --no-audit --no-fund --silent
       - name: Deploy to Mumbai
         working-directory: ./contracts
         env:
